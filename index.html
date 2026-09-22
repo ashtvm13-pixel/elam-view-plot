@@ -1,0 +1,710 @@
+<title>Elam View Plot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+  :root{
+    color-scheme: light;
+    --ground:#e9ebe5; --surface:#f7f8f4; --surface2:#dee2d8;
+    --ink:#171d19; --muted:#5a665d; --line:#c7cec2; --line-soft:#d8ded2;
+    --accent:#c2571f; --teal:#2b7466; --sky:#a9c4d8; --hill:#5d6b4f;
+    --shadow: 0 1px 2px rgba(23,29,25,.06), 0 8px 24px rgba(23,29,25,.05);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme: dark;
+      --ground:#0c110f; --surface:#141a17; --surface2:#1d2521;
+      --ink:#e7ece5; --muted:#91a096; --line:#2a332d; --line-soft:#222b26;
+      --accent:#e07d40; --teal:#4fae9b; --sky:#20303c; --hill:#2c3a2a;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --ground:#0c110f; --surface:#141a17; --surface2:#1d2521;
+    --ink:#e7ece5; --muted:#91a096; --line:#2a332d; --line-soft:#222b26;
+    --accent:#e07d40; --teal:#4fae9b; --sky:#20303c; --hill:#2c3a2a;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--ground); color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif; font-size:14px;
+    line-height:1.55; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1180px; margin:0 auto; padding-inline:16px; padding-block:22px 48px;}
+  h1,h2,h3{font-family:"IBM Plex Sans Condensed","IBM Plex Sans",sans-serif;}
+  .mono{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums;}
+
+  header.mast{display:flex; flex-wrap:wrap; align-items:flex-end; gap:14px 28px; margin-bottom:18px;}
+  .mast .id{flex:1 1 320px; min-width:0;}
+  .eyebrow{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--muted); margin:0 0 6px;}
+  h1{font-size:clamp(28px,5vw,40px); line-height:1.05; letter-spacing:-.015em; font-weight:700;
+    margin:0 0 6px; text-wrap:balance;}
+  .sub{color:var(--muted); margin:0; max-width:58ch;}
+  .headfig{display:flex; gap:26px; flex-wrap:wrap;}
+  .headfig .k{font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--muted); display:block; white-space:nowrap;}
+  .headfig .v{font-family:"IBM Plex Sans Condensed",sans-serif; font-size:23px; font-weight:600;
+    font-variant-numeric:tabular-nums; white-space:nowrap;}
+  .headfig .v small{font-size:12px; font-weight:500; color:var(--muted);}
+
+  .viewer{position:relative; border:1px solid var(--line); border-radius:3px 3px 0 0;
+    overflow:hidden; background:var(--surface); box-shadow:var(--shadow);}
+  #stage{display:block; width:100%; height:min(62vh,580px); min-height:340px;
+    touch-action:none; cursor:grab;}
+  #stage.drag{cursor:grabbing}
+  #stage.pov{cursor:crosshair}
+  .lyr{position:absolute; inset:0; pointer-events:none; overflow:hidden;}
+  .lbl{position:absolute; transform:translate(-50%,-50%); white-space:nowrap; will-change:transform;}
+  .lbl-v{font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:600; color:#fff;
+    background:var(--accent); padding:1px 5px; border-radius:2px; box-shadow:0 1px 4px rgba(0,0,0,.35);}
+  .lbl-e{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--ink);
+    background:color-mix(in srgb, var(--surface) 88%, transparent); border:1px solid var(--line);
+    padding:1px 5px; border-radius:2px;}
+  .lbl-n{font-family:"IBM Plex Sans Condensed",sans-serif; font-size:11.5px; font-weight:600;
+    letter-spacing:.04em; color:var(--muted); text-transform:uppercase;}
+  .lbl-s{font-family:"IBM Plex Sans Condensed",sans-serif; font-size:11px; font-weight:600;
+    color:var(--teal); letter-spacing:.03em;}
+
+  .hud{position:absolute; pointer-events:none;}
+  .hud-tl{top:10px; left:10px; display:flex; gap:6px; flex-wrap:wrap; pointer-events:auto; max-width:calc(100% - 20px);}
+  .hud-br{right:10px; bottom:10px;}
+  .hud-bl{left:10px; bottom:10px; right:74px;}
+  .seg{display:flex; background:color-mix(in srgb, var(--surface) 92%, transparent);
+    border:1px solid var(--line); border-radius:3px; overflow:hidden; backdrop-filter:blur(6px);}
+  .seg button{appearance:none; border:0; background:transparent; color:var(--muted); cursor:pointer;
+    font-family:"IBM Plex Sans Condensed",sans-serif; font-weight:600; font-size:11.5px;
+    letter-spacing:.05em; text-transform:uppercase; padding:6px 10px;
+    border-right:1px solid var(--line-soft);}
+  .seg button:last-child{border-right:0}
+  .seg button:hover{color:var(--ink); background:var(--surface2)}
+  .seg button[aria-pressed="true"]{color:var(--surface); background:var(--accent)}
+  .seg button:focus-visible{outline:2px solid var(--accent); outline-offset:-2px}
+  .readout{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted);
+    background:color-mix(in srgb, var(--surface) 90%, transparent); border:1px solid var(--line);
+    border-radius:3px; padding:5px 8px; display:inline-block; backdrop-filter:blur(6px);}
+  .readout b{color:var(--ink); font-weight:600}
+  .readout .in{color:var(--accent); font-weight:600}
+  .compass{width:46px;height:46px} .compass svg{display:block;width:100%;height:100%}
+  .rose{transform-origin:50% 50%}
+
+  /* ---- 360 horizon strip ---- */
+  .pano{border:1px solid var(--line); border-top:0; border-radius:0 0 3px 3px;
+    background:var(--surface); box-shadow:var(--shadow); padding:10px 12px 12px;}
+  .pano-head{display:flex; justify-content:space-between; align-items:baseline; gap:12px;
+    flex-wrap:wrap; margin-bottom:7px;}
+  .pano-head h2{margin:0; font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--muted); font-family:"IBM Plex Mono",monospace; font-weight:600;}
+  .pano-head .hint{font-size:11.5px; color:var(--muted)}
+  #pano{display:block; width:100%; height:132px; cursor:ew-resize; border-radius:2px;
+    touch-action:pan-y;}
+
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(288px,1fr)); gap:16px; margin-top:20px;}
+  .panel{background:var(--surface); border:1px solid var(--line); border-radius:3px; padding:16px 16px 18px;}
+  .panel h2{font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted);
+    margin:0 0 12px; font-weight:600; font-family:"IBM Plex Mono",monospace;}
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th,td{text-align:left; padding:6px 8px 6px 0; border-bottom:1px solid var(--line-soft); vertical-align:baseline;}
+  th{font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--muted); font-weight:500;}
+  td.num{text-align:right; padding-right:0; font-family:"IBM Plex Mono",monospace;
+    font-variant-numeric:tabular-nums; white-space:nowrap;}
+  tr:last-child td{border-bottom:0}
+  .tag{display:inline-block; width:18px; height:18px; line-height:17px; text-align:center;
+    font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:600; color:#fff;
+    background:var(--accent); border-radius:2px; margin-right:7px;}
+  .road-row td:first-child{color:var(--teal)}
+  #edgeRows td:first-child{white-space:nowrap}
+  .scroll{overflow-x:auto}
+  dl.facts{margin:0; display:grid; grid-template-columns:auto 1fr; gap:7px 14px; align-items:baseline;}
+  dl.facts dt{font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.09em;
+    text-transform:uppercase; color:var(--muted);}
+  dl.facts dd{margin:0; font-variant-numeric:tabular-nums;}
+  dl.facts dd b{font-family:"IBM Plex Sans Condensed",sans-serif; font-weight:600; font-size:15px;}
+  .totals{margin-top:12px; padding-top:11px; border-top:1px solid var(--line);
+    display:flex; justify-content:space-between; gap:12px; align-items:baseline;}
+  .totals .lab{font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.09em;
+    text-transform:uppercase; color:var(--muted);}
+  .totals .big{font-family:"IBM Plex Sans Condensed",sans-serif; font-weight:700; font-size:20px;
+    font-variant-numeric:tabular-nums;}
+  .note{font-size:12.5px; color:var(--muted); line-height:1.6;}
+  .note p{margin:0 0 9px} .note p:last-child{margin-bottom:0}
+  .note b{color:var(--ink); font-weight:600}
+  .flag{border-left:2px solid var(--accent); padding-left:10px;}
+  .sw{display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px;
+    transform:translateY(1px);}
+  .legend{display:flex; flex-direction:column; gap:5px; font-size:12px; color:var(--muted);}
+  footer{margin-top:26px; padding-top:14px; border-top:1px solid var(--line); color:var(--muted);
+    font-size:11.5px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;}
+  @media (max-width:560px){
+    #stage{height:52vh; min-height:300px}
+    .seg button{padding:5px 7px; font-size:10.5px; letter-spacing:.03em}
+    .hud-bl{right:10px; bottom:64px}
+    #pano{height:108px}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="mast">
+    <div class="id">
+      <p class="eyebrow">Thankamony · Idukki · Kerala 685609</p>
+      <h1>Elam View Plot</h1>
+      <p class="sub">The surveyor's six lengths and 2 442.36 m² rebuilt as a closed polygon, seated against the real road bend with corner H on the inside of it, and draped on SRTM terrain. Stand at the house and look around.</p>
+    </div>
+    <div class="headfig">
+      <div><span class="k">Total extent</span><span class="v">62.65 <small>cents</small></span></div>
+      <div><span class="k">Main plot</span><span class="v">2 442.36 <small>m²</small></span></div>
+      <div><span class="k">Road frontage</span><span class="v">82.6 <small>m</small></span></div>
+    </div>
+  </header>
+
+  <div class="viewer">
+    <canvas id="stage"></canvas>
+    <div class="lyr" id="labels"></div>
+    <div class="hud hud-tl">
+      <div class="seg" role="group" aria-label="Camera">
+        <button type="button" data-view="iso" aria-pressed="true">Site</button>
+        <button type="button" data-view="plan">Plan</button>
+        <button type="button" data-view="road">Road</button>
+        <button type="button" data-view="pov">Stand at house</button>
+      </div>
+      <div class="seg" role="group" aria-label="Layers">
+        <button type="button" data-layer="labels" aria-pressed="true">Labels</button>
+        <button type="button" data-layer="contours" aria-pressed="true">Contours</button>
+        <button type="button" data-layer="build" aria-pressed="true">Buildings</button>
+      </div>
+    </div>
+    <div class="hud hud-bl"><span class="readout" id="readout">Hover the terrain to read a point</span></div>
+    <div class="hud hud-br">
+      <div class="compass" aria-hidden="true"><svg viewBox="0 0 48 48">
+        <circle cx="24" cy="24" r="21" fill="none" stroke="currentColor" stroke-opacity=".25"/>
+        <g class="rose" id="rose">
+          <path d="M24 5 L28.4 23 L24 20.4 L19.6 23 Z" fill="currentColor"/>
+          <path d="M24 43 L19.6 25 L24 27.6 L28.4 25 Z" fill="currentColor" fill-opacity=".28"/>
+          <text x="24" y="15.4" text-anchor="middle" font-size="8.5"
+                font-family="IBM Plex Mono, monospace" font-weight="600" fill="#fff">N</text>
+        </g></svg></div>
+    </div>
+  </div>
+
+  <section class="pano">
+    <div class="pano-head">
+      <h2>Skyline from the house · 360°</h2>
+      <span class="hint">Drag or click to swing the view. Ridge heights are terrain only — trees not included.</span>
+    </div>
+    <canvas id="pano"></canvas>
+  </section>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Boundary schedule</h2>
+      <div class="scroll"><table>
+        <thead><tr><th>Line</th><th>Adjoins</th><th class="num">Length</th></tr></thead>
+        <tbody id="edgeRows"></tbody>
+      </table></div>
+      <div class="totals"><span class="lab">Perimeter</span><span class="big">207.8 m</span></div>
+    </section>
+
+    <section class="panel">
+      <h2>Corner register</h2>
+      <div class="scroll"><table>
+        <thead><tr><th>Pt</th><th class="num">Latitude</th><th class="num">Longitude</th><th class="num">Elev</th></tr></thead>
+        <tbody id="vertRows"></tbody>
+      </table></div>
+      <div class="totals"><span class="lab">Fall across plot</span><span class="big" id="fall">—</span></div>
+    </section>
+
+    <section class="panel">
+      <h2>Site character</h2>
+      <dl class="facts" id="facts"></dl>
+    </section>
+
+    <section class="panel">
+      <h2>Where the view is</h2>
+      <div class="scroll"><table>
+        <thead><tr><th>Sector</th><th class="num">Skyline</th><th class="num">Sees out to</th></tr></thead>
+        <tbody id="viewRows"></tbody>
+      </table></div>
+      <p class="note" style="margin-top:11px">Measured from the house at 1.6 m eye height against SRTM ground. Standing vegetation is not in the data and will close down much of this on the ground.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Area statement</h2>
+      <div class="scroll"><table>
+        <thead><tr><th>Parcel</th><th class="num">m²</th><th class="num">Cents</th></tr></thead>
+        <tbody>
+          <tr><td>Main plot A–B–C–H–G–F</td><td class="num">2 442.36</td><td class="num">60.35</td></tr>
+          <tr class="road-row"><td>Road strip 32.2 / 33.0 / 5.6</td><td class="num">93.26</td><td class="num">2.30</td></tr>
+        </tbody>
+      </table></div>
+      <div class="totals"><span class="lab">Full total</span><span class="big">2 535.62 m² · 62.65 cents</span></div>
+      <p class="note" style="margin-top:12px">The road strip is a separate triangle on the sheet with no position given, so it is counted here but not drawn.</p>
+    </section>
+
+    <section class="panel">
+      <h2>What the sheet can and cannot fix</h2>
+      <div class="note">
+        <p class="flag"><b>The sheet does not determine the shape on its own.</b> Six side lengths plus one area is seven numbers; a hexagon has eight shape degrees of freedom. One degree of freedom is left over, so infinitely many different-looking hexagons carry these exact six lengths and this exact area. The sheet records no bearings and no corner coordinates, so the missing piece has to come from somewhere else.</p>
+        <p><b>What pins it here.</b> Three of the six lines are road frontage, and the road is visible on the imagery. Seating F–G–H–C on the road — with <b>H on the inside corner of the bend</b> — fixes that spare degree of freedom from the ground rather than from a guess. The result holds all six lengths to the centimetre and returns 2 442.36 m² exactly.</p>
+        <p><b>Still approximate.</b> Absolute position rests on the Elam view point pin and a screenshot scale of 0.136 m/px, so the whole figure could sit some metres off true. Ground height is SRTM 30 m — right for the hillside trend, not a levelled survey. <b>For anything legal or for cut-and-fill, get the surveyor's bearings or corner coordinates</b>; they would replace the one assumption this model still makes.</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Reading the model</h2>
+      <div class="legend">
+        <span><i class="sw" style="background:var(--accent)"></i>Surveyed boundary, draped on terrain</span>
+        <span><i class="sw" style="background:#b9a46a"></i>Thankamany–Achankanam–Kuttankavala road</span>
+        <span><i class="sw" style="background:#8a94b8"></i>Existing house and round structure</span>
+        <span><i class="sw" style="background:#7d8a75"></i>Contours every 5 m</span>
+      </div>
+      <p class="note" style="margin-top:12px">Drag to orbit, right-drag to pan. Click the view once, then scroll to zoom — until you do, the wheel scrolls the page. <b>Stand at house</b> drops you to eye height inside the plot — drag to look around, and the skyline strip below tracks where you are facing.</p>
+    </section>
+  </div>
+
+  <footer>
+    <span class="mono" id="footcoord">—</span>
+    <span class="mono">Survey 2026-09-20 · Terrain SRTM 30 m · OSM road check</span>
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+var S = {"meta":{"lat0":9.852065,"lon0":77.02738,"mlat":111320.0,"mlon":109678.34406919185,"scale":0.13600000000000004,"n":31,"span":480.0,"ce":48.2,"cn":-44.3,"nWide":41,"spanWide":4000.0,"ceWide":50.79761979953699,"cnWide":-44.25834250632965},"dem":[815,813,809,806,804,803,803,803,803,802,800,799,798,797,797,796,795,793,790,787,782,778,775,772,769,767,764,762,760,760,761,825,822,817,810,809,810,809,809,808,808,806,805,804,802,801,800,798,796,794,790,786,783,780,777,774,771,769,768,767,769,770,837,834,828,819,817,818,817,816,815,814,812,811,809,807,806,804,803,801,798,794,791,788,785,782,779,777,775,774,774,777,780,851,847,840,832,828,827,826,825,823,820,818,816,814,813,811,809,808,806,802,799,796,794,792,789,785,783,781,781,783,786,789,861,859,853,847,843,840,837,835,832,828,826,823,821,820,818,816,814,811,808,805,803,800,798,795,793,791,789,790,791,794,797,869,868,867,864,860,854,849,844,841,837,835,833,830,828,825,823,820,818,816,813,810,807,804,802,801,799,798,798,799,801,803,876,876,875,874,871,866,862,857,853,849,846,844,842,839,836,833,831,828,826,823,820,817,814,812,810,809,808,807,806,807,809,882,882,881,880,879,878,875,872,867,862,859,856,854,852,849,846,843,840,837,835,833,830,826,823,821,819,818,815,813,813,814,884,884,884,884,884,884,883,881,877,874,871,868,866,863,860,857,854,850,848,845,843,840,836,834,831,829,827,825,824,824,824,884,886,887,887,888,888,888,887,886,885,883,880,877,873,870,867,864,861,858,855,852,849,846,844,841,839,836,836,836,836,837,886,888,888,889,889,890,890,889,889,889,889,888,885,882,880,877,874,871,868,865,861,858,856,854,852,850,848,848,848,848,848,888,889,890,890,890,891,891,891,892,893,894,895,893,891,889,887,885,882,878,875,871,868,865,864,863,861,860,860,860,860,860,892,892,892,891,891,891,891,891,893,894,898,901,901,901,898,896,894,891,887,884,880,877,875,874,873,872,871,870,870,869,869,895,894,893,892,892,891,891,891,893,896,902,907,909,911,908,905,902,899,896,893,890,887,884,884,884,883,881,880,878,877,876,898,897,895,893,892,891,891,892,895,898,904,910,911,913,911,909,908,906,903,900,897,895,892,891,890,890,890,889,889,889,888,900,899,897,895,893,891,892,893,897,901,907,912,913,914,914,914,913,912,910,908,905,902,900,898,896,897,898,899,900,900,901,903,902,900,897,895,893,894,895,899,903,907,912,913,915,916,917,917,917,915,914,913,912,910,908,906,906,906,907,908,909,909,905,905,903,900,898,896,896,897,901,905,908,911,913,915,917,919,920,921,920,920,921,921,921,919,916,915,914,914,915,916,917,905,906,905,902,900,899,898,899,901,904,907,909,911,914,917,919,921,922,923,925,926,927,927,927,926,925,924,924,924,923,923,905,906,906,904,903,901,900,900,901,903,905,907,909,912,916,919,921,923,926,928,930,932,934,934,934,934,933,932,932,930,929,903,905,904,902,900,898,897,897,898,899,901,903,906,909,914,918,921,924,926,929,931,933,935,936,936,936,936,936,936,935,934,901,904,903,900,898,896,895,893,894,894,896,899,902,906,912,917,920,923,926,928,931,933,936,937,937,938,938,938,938,938,937,900,901,900,898,896,893,891,889,890,890,893,896,899,903,908,913,917,921,923,926,929,932,934,935,935,935,935,935,935,935,935,897,898,898,896,894,891,888,886,886,886,889,892,896,899,904,909,914,917,920,923,926,929,932,933,932,932,932,932,932,932,932,890,893,894,894,891,888,886,883,883,882,886,889,893,897,902,906,909,912,915,918,922,925,928,928,928,927,926,926,926,927,928,882,887,890,890,889,886,883,880,880,879,882,885,890,894,899,903,905,908,911,914,918,921,923,924,923,922,920,920,920,922,923,872,879,884,886,885,882,880,878,876,875,877,880,885,890,895,899,902,905,907,910,913,916,917,918,917,916,915,914,912,914,916,862,871,877,881,880,878,876,874,873,872,873,875,881,886,891,895,898,901,904,907,909,911,912,912,912,911,910,908,905,907,909,854,863,870,875,875,872,871,870,869,868,870,871,877,882,887,891,894,897,900,903,906,907,908,908,908,906,904,902,901,902,903,847,856,863,868,868,866,865,865,864,864,866,867,872,877,882,887,890,893,896,898,901,903,903,903,903,901,899,898,897,897,897,843,851,856,860,860,860,860,859,860,861,862,863,867,872,878,883,885,888,891,894,896,897,898,898,898,896,894,894,893,894,894],"demWide":[888,874,852,836,821,822,869,929,969,939,927,905,875,864,863,825,789,757,726,712,690,673,672,673,664,645,654,650,651,648,679,712,777,779,774,777,778,795,803,813,826,927,912,886,857,837,830,844,904,962,962,951,916,910,918,908,879,854,801,779,754,726,712,704,699,699,710,706,696,682,675,675,692,746,790,787,780,786,787,790,809,818,895,949,931,894,864,851,851,878,934,969,956,928,943,966,963,943,908,856,833,825,790,783,763,756,753,774,753,748,732,720,720,715,731,796,805,810,813,810,789,800,804,854,913,936,936,924,902,875,877,908,951,969,972,976,1012,993,955,945,911,913,889,871,871,839,840,831,827,820,821,797,774,789,780,768,781,793,812,816,815,807,814,834,841,866,878,907,930,924,900,915,927,952,978,979,991,1008,996,968,976,970,974,940,947,942,909,911,912,883,874,879,862,859,855,835,822,815,804,796,797,799,803,815,829,742,806,820,836,870,901,949,967,981,988,990,985,988,994,1000,985,1002,1010,994,958,978,968,943,924,936,946,944,941,932,920,904,885,871,855,840,831,818,804,806,813,850,698,725,755,794,824,856,916,951,959,994,1004,996,1000,1012,1009,996,1021,1041,1012,983,1011,1003,965,951,970,980,990,1000,993,979,955,943,923,889,877,876,865,833,851,861,866,652,675,698,753,770,833,881,889,894,943,949,984,1000,1011,1021,1005,1028,1040,1017,1011,1027,1026,1000,992,1003,1003,1017,1011,1010,994,988,977,949,938,930,909,886,884,883,887,889,613,638,669,704,741,795,826,841,826,862,890,911,946,965,1007,1014,1002,996,986,997,994,987,1017,1007,993,996,1005,995,995,981,983,986,966,945,920,900,901,919,912,906,906,599,622,641,664,698,742,768,770,780,805,832,850,870,901,950,981,973,953,942,941,938,941,978,1000,990,983,982,976,976,970,968,966,954,945,932,911,905,926,956,953,935,619,612,620,636,666,702,718,721,730,760,766,787,808,830,888,959,963,941,908,899,900,904,923,961,989,992,978,976,989,990,982,969,957,973,966,931,911,922,951,957,944,651,621,627,614,635,657,681,676,701,718,725,738,753,781,807,836,916,908,891,879,870,867,885,922,951,982,985,989,995,985,973,963,965,964,959,937,923,934,928,923,927,677,662,671,642,624,625,649,659,660,677,683,698,718,747,765,790,805,838,846,853,861,851,857,877,909,949,962,984,984,979,976,983,972,973,963,956,939,937,924,901,907,692,694,711,676,642,624,617,632,629,637,647,664,690,711,724,744,754,762,781,795,817,816,826,828,859,871,890,925,936,961,964,967,975,968,956,930,896,900,905,898,895,728,746,757,724,690,653,632,615,618,618,625,641,640,658,675,683,708,721,738,752,761,780,779,787,812,833,846,870,883,908,901,911,928,914,905,882,864,857,865,879,893,757,776,788,753,711,683,671,637,628,623,647,662,663,662,673,680,692,693,704,714,725,737,745,747,766,780,806,832,836,857,859,846,868,865,865,867,860,836,830,861,897,767,767,807,785,747,732,698,667,652,645,646,686,729,717,717,739,743,740,756,747,737,733,733,732,740,756,778,795,799,822,821,809,820,826,825,836,842,834,823,856,891,793,768,783,828,810,787,751,711,689,684,664,664,716,765,795,795,793,800,790,773,769,759,741,746,753,740,748,758,771,779,789,784,805,802,789,802,821,814,816,831,849,793,778,780,823,829,822,788,761,753,735,699,678,686,739,803,854,861,846,828,818,807,790,778,794,787,764,759,753,749,754,759,770,779,783,779,779,808,807,796,811,815,782,780,790,803,802,828,834,805,801,788,776,740,713,717,750,827,875,879,886,882,864,845,833,839,819,799,809,799,786,777,775,769,780,778,784,788,784,789,786,786,791,802,798,780,782,791,804,832,856,852,836,823,809,782,743,735,787,838,891,896,901,914,901,900,900,864,839,845,843,829,801,789,790,800,813,812,815,811,818,799,804,814,847,814,798,781,783,803,809,820,846,863,866,854,830,801,768,766,820,869,901,893,917,934,938,938,918,900,886,880,882,829,818,814,813,834,832,810,818,818,800,796,814,846,831,801,795,781,787,789,809,820,833,849,869,870,848,819,799,804,838,876,870,894,910,904,911,927,955,948,934,924,890,867,847,843,860,835,824,830,814,799,808,813,859,857,834,806,790,787,785,794,802,818,811,837,860,867,863,845,820,816,830,842,871,876,875,894,910,952,986,976,940,939,927,908,894,872,865,872,861,833,808,823,821,869,873,852,835,804,800,803,788,795,796,797,814,830,842,866,873,865,842,815,814,843,847,869,884,893,923,951,986,961,943,949,931,896,879,880,875,868,847,827,810,807,866,879,876,854,831,809,815,809,801,785,792,805,817,818,841,861,874,876,852,816,817,826,853,855,862,887,912,957,980,955,949,926,893,863,859,855,851,842,835,829,818,810,845,859,851,851,836,823,830,836,814,791,789,799,808,837,836,836,866,873,847,836,820,824,833,834,858,890,921,952,959,954,939,913,871,845,836,831,828,823,820,815,769,772,796,814,821,835,829,832,842,834,813,796,787,795,807,810,815,827,851,875,863,842,829,822,820,830,857,888,903,938,933,938,928,895,881,859,843,851,838,831,831,757,738,754,767,787,803,814,819,836,844,831,826,808,794,787,790,799,804,832,844,855,859,856,833,821,815,827,851,868,901,910,900,910,913,915,902,874,865,862,867,866,742,723,721,731,743,764,778,809,822,831,845,836,837,820,799,799,788,794,801,812,824,849,874,863,856,832,815,818,836,859,881,880,865,879,901,903,896,898,915,923,902,699,704,729,749,740,739,754,785,823,831,838,861,863,850,821,810,807,804,800,796,802,823,845,859,865,850,831,813,816,824,833,853,849,861,876,872,883,894,916,941,937,718,724,748,786,793,777,767,764,809,847,853,879,907,897,862,838,820,825,822,803,796,797,807,818,829,849,844,827,812,809,810,827,835,848,854,850,856,872,898,925,930,749,756,744,777,816,827,810,789,797,829,867,887,931,934,917,890,869,862,842,831,811,798,799,796,805,833,850,833,812,804,804,807,811,821,838,828,850,874,882,900,913,722,746,774,773,793,838,850,829,819,824,857,905,932,952,961,941,911,899,880,860,832,824,816,804,803,811,817,815,806,802,800,798,802,806,814,834,855,855,871,881,882,760,735,752,791,815,842,875,873,862,859,869,888,903,930,953,965,945,931,917,892,878,874,856,845,839,817,825,821,808,807,797,796,797,800,800,829,836,827,851,876,867,816,787,763,755,798,830,838,853,859,872,871,883,890,906,935,973,959,942,920,920,917,922,909,899,867,858,826,840,829,819,812,808,802,799,797,802,806,820,846,846,848,852,828,805,778,774,789,799,804,815,825,826,838,854,881,925,960,982,975,943,937,944,923,910,905,894,882,859,831,845,857,854,839,828,828,800,795,797,810,815,816,825,899,872,845,817,785,776,778,781,783,798,799,812,818,859,900,935,981,988,969,953,961,952,948,938,905,896,890,859,844,884,893,891,878,867,834,806,792,793,797,809,806,905,913,891,853,840,825,820,831,842,858,866,839,821,837,871,909,967,996,979,972,979,988,989,963,942,925,898,868,867,872,867,869,860,870,874,841,812,798,791,799,799,899,908,913,907,888,865,868,890,896,883,870,863,864,846,862,901,949,980,998,992,987,990,990,966,938,916,903,887,889,872,836,838,842,841,859,863,841,821,801,789,791,871,887,904,925,922,908,908,944,924,893,883,881,878,878,863,886,921,951,990,992,973,964,963,963,955,937,931,923,924,898,857,821,822,827,831,848,846,837,816,798,789],"poly":[{"id":"A","e":42.05,"n":-18.24,"z":907.5,"lat":9.851901,"lon":77.027763},{"id":"B","e":92.65,"n":-33.3,"z":905.8,"lat":9.851766,"lon":77.028225},{"id":"C","e":67.8,"n":-78.64,"z":920.4,"lat":9.851359,"lon":77.027998},{"id":"H","e":46.55,"n":-73.34,"z":918.4,"lat":9.851406,"lon":77.027804},{"id":"G","e":34.38,"n":-43.86,"z":913.9,"lat":9.851671,"lon":77.027693},{"id":"F","e":21.35,"n":-18.17,"z":910.9,"lat":9.851902,"lon":77.027575}],"edges":[{"a":"A","b":"B","len":52.8,"label":"Property of Bineesh"},{"a":"B","b":"C","len":51.7,"label":"Tiji Ummedathe"},{"a":"C","b":"H","len":21.9,"label":"Road frontage \u00b7 Bibin Tharappel side"},{"a":"H","b":"G","len":31.9,"label":"Road frontage"},{"a":"G","b":"F","len":28.8,"label":"Road frontage"},{"a":"F","b":"A","len":20.7,"label":"Para (rock)"}],"road":[{"e":16.5,"n":-13.6},{"e":20.3,"n":-21.8},{"e":24.3,"n":-29.9},{"e":28.7,"n":-38.1},{"e":32.8,"n":-46.2},{"e":36.2,"n":-54.4},{"e":38.9,"n":-61.2},{"e":41.6,"n":-68.0},{"e":44.7,"n":-75.1},{"e":50.5,"n":-77.2},{"e":58.6,"n":-79.2},{"e":65.4,"n":-80.8},{"e":72.2,"n":-81.9},{"e":79.0,"n":-83.0},{"e":85.8,"n":-84.0},{"e":92.6,"n":-85.1},{"e":99.4,"n":-86.8},{"e":106.2,"n":-88.4}],"structures":[{"id":"house","e":68.8,"n":-55.8,"w":12,"d":9,"h":4.2,"rot":-9},{"id":"rot","e":66.1,"n":-45.3,"r":4.0,"h":3.4}],"horizon":[{"b":0.0,"ang":4.76,"dist":1350},{"b":7.5,"ang":4.46,"dist":1238},{"b":15.0,"ang":3.96,"dist":1135},{"b":22.5,"ang":4.0,"dist":1350},{"b":30.0,"ang":3.56,"dist":1472},{"b":37.5,"ang":3.76,"dist":1135},{"b":45.0,"ang":3.25,"dist":1135},{"b":52.5,"ang":2.75,"dist":1238},{"b":60.0,"ang":2.2,"dist":1472},{"b":67.5,"ang":0.65,"dist":14480},{"b":75.0,"ang":0.54,"dist":15603},{"b":82.5,"ang":1.25,"dist":2477},{"b":90.0,"ang":1.02,"dist":14480},{"b":97.5,"ang":0.93,"dist":283},{"b":105.0,"ang":3.93,"dist":184},{"b":112.5,"ang":7.29,"dist":130},{"b":120.0,"ang":8.87,"dist":100},{"b":127.5,"ang":9.19,"dist":84},{"b":135.0,"ang":9.33,"dist":71},{"b":142.5,"ang":9.3,"dist":65},{"b":150.0,"ang":8.43,"dist":65},{"b":157.5,"ang":7.95,"dist":55},{"b":165.0,"ang":6.92,"dist":55},{"b":172.5,"ang":5.4,"dist":59},{"b":180.0,"ang":4.14,"dist":50},{"b":187.5,"ang":4.34,"dist":4064},{"b":195.0,"ang":3.57,"dist":3772},{"b":202.5,"ang":4.73,"dist":3504},{"b":210.0,"ang":4.45,"dist":3504},{"b":217.5,"ang":2.63,"dist":3504},{"b":225.0,"ang":1.04,"dist":3504},{"b":232.5,"ang":1.63,"dist":4064},{"b":240.0,"ang":0.85,"dist":4380},{"b":247.5,"ang":0.75,"dist":4720},{"b":255.0,"ang":-0.26,"dist":5086},{"b":262.5,"ang":-0.16,"dist":12469},{"b":270.0,"ang":-0.1,"dist":12469},{"b":277.5,"ang":-0.27,"dist":9965},{"b":285.0,"ang":-0.07,"dist":11571},{"b":292.5,"ang":-0.45,"dist":12469},{"b":300.0,"ang":-0.51,"dist":14480},{"b":307.5,"ang":0.9,"dist":12469},{"b":315.0,"ang":0.4,"dist":2477},{"b":322.5,"ang":2.47,"dist":1751},{"b":330.0,"ang":3.13,"dist":1472},{"b":337.5,"ang":4.13,"dist":1350},{"b":345.0,"ang":5.14,"dist":1350},{"b":352.5,"ang":3.67,"dist":1350}],"sectors":[{"name":"N","ang":4.3,"km":1.35},{"name":"NE","ang":3.4,"km":1.47},{"name":"E","ang":1.0,"km":15.6},{"name":"SE","ang":9.0,"km":0.13},{"name":"S","ang":4.9,"km":4.06},{"name":"SW","ang":2.1,"km":4.38},{"name":"W","ang":-0.1,"km":12.47},{"name":"NW","ang":0.7,"km":14.48}],"site":{"slopePct":30,"slopeDeg":16.5,"aspect":18,"aspectName":"NNE"}};
+var M = S.meta;
+
+/* ---------- DEM sampling: fine window inside, wide window outside ---------- */
+function sampler(grid, n, span, ce, cn){
+  var step = span/(n-1);
+  function g(ix,iy){ ix=ix<0?0:(ix>n-1?n-1:ix); iy=iy<0?0:(iy>n-1?n-1:iy); return grid[iy*n+ix]; }
+  function cr(p0,p1,p2,p3,t){var t2=t*t,t3=t2*t;
+    return 0.5*((2*p1)+(-p0+p2)*t+(2*p0-5*p1+4*p2-p3)*t2+(-p0+3*p1-3*p2+p3)*t3);}
+  return function(e,nn){
+    var gx=(e-ce+span/2)/step, gy=(span/2-(nn-cn))/step;
+    var x0=Math.floor(gx), y0=Math.floor(gy), fx=gx-x0, fy=gy-y0, c=[];
+    for(var j=-1;j<=2;j++) c.push(cr(g(x0-1,y0+j),g(x0,y0+j),g(x0+1,y0+j),g(x0+2,y0+j),fx));
+    return cr(c[0],c[1],c[2],c[3],fy);
+  };
+}
+var fine = sampler(S.dem, M.n, M.span, M.ce, M.cn);
+var wide = sampler(S.demWide, M.nWide, M.spanWide, M.ceWide, M.cnWide);
+var FIN = M.span/2 - 30;                        /* trust fine DEM inside this radius */
+function demAt(e,n){
+  var dx=e-M.ce, dy=n-M.cn, r=Math.max(Math.abs(dx),Math.abs(dy));
+  if(r < FIN-25) return fine(e,n);
+  if(r > FIN)    return wide(e,n);
+  var t=(r-(FIN-25))/25;
+  return fine(e,n)*(1-t) + wide(e,n)*t;
+}
+
+var P = S.poly, EDG = S.edges, byId = {};
+P.forEach(function(p){ byId[p.id]=p; });
+var CE=0, CN=0;
+P.forEach(function(p){ CE+=p.e; CN+=p.n; }); CE/=P.length; CN/=P.length;
+var BASE = demAt(CE,CN);
+function W(e,n,extra){ return new THREE.Vector3(e-CE, demAt(e,n)-BASE+(extra||0), -(n-CN)); }
+function inPlot(e,n){
+  var c=false,i,j;
+  for(i=0,j=P.length-1;i<P.length;j=i++){
+    if(((P[i].n>n)!==(P[j].n>n)) &&
+       (e<(P[j].e-P[i].e)*(n-P[i].n)/(P[j].n-P[i].n)+P[i].e)) c=!c;
+  } return c;
+}
+
+/* ---------- renderer ---------- */
+var canvas=document.getElementById('stage');
+var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+var scene=new THREE.Scene();
+var camera=new THREE.PerspectiveCamera(48,1,0.4,14000);
+function isDark(){
+  var t=document.documentElement.getAttribute('data-theme');
+  if(t==='dark') return true; if(t==='light') return false;
+  return matchMedia('(prefers-color-scheme: dark)').matches;
+}
+function paintBg(){
+  var d=isDark(), c=d?0x121b21:0xbcd0dd;
+  scene.background=new THREE.Color(c);
+  scene.fog=new THREE.Fog(c, 900, 5200);
+}
+paintBg();
+scene.add(new THREE.HemisphereLight(0xd8e4ef,0x3d3529,0.6));
+var sun=new THREE.DirectionalLight(0xfff0dc,1.05); sun.position.set(-600,780,520); scene.add(sun);
+var fill=new THREE.DirectionalLight(0x9fb6d0,0.28); fill.position.set(640,360,-560); scene.add(fill);
+
+/* ---------- terrain ---------- */
+var ramp=[0x33513f,0x4a6440,0x6e7d44,0x968b50,0xb6a16c,0xcfbd93].map(function(h){return new THREE.Color(h);});
+function rampAt(t){
+  t=t<0?0:(t>1?1:t);
+  var x=t*(ramp.length-1), i=Math.floor(x), f=x-i;
+  return i>=ramp.length-1 ? ramp[ramp.length-1].clone() : ramp[i].clone().lerp(ramp[i+1],f);
+}
+var contourOn=true, meshes=[];
+function buildTerrain(win, res, skipInner){
+  var geo=new THREE.PlaneBufferGeometry(win,win,res,res); geo.rotateX(-Math.PI/2);
+  var pos=geo.attributes.position, hv=new Float32Array(pos.count);
+  for(var i=0;i<pos.count;i++){
+    var z=demAt(CE+pos.getX(i), CN-pos.getZ(i)); hv[i]=z; pos.setY(i,z-BASE);
+  }
+  if(skipInner){
+    var idx=geo.index.array, keep=[];
+    for(var k=0;k<idx.length;k+=3){
+      var inAll=true;
+      for(var q=0;q<3;q++){
+        var v=idx[k+q];
+        if(Math.max(Math.abs(pos.getX(v)),Math.abs(pos.getZ(v))) > skipInner){ inAll=false; break; }
+      }
+      if(!inAll){ keep.push(idx[k],idx[k+1],idx[k+2]); }
+    }
+    geo.setIndex(keep);
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(pos.count*3),3));
+  geo.computeVertexNormals();
+  var m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,roughness:.97,metalness:0}));
+  scene.add(m); meshes.push({mesh:m,h:hv,geo:geo}); return m;
+}
+var near=buildTerrain(360,200,0);
+var far =buildTerrain(3900,150,178);
+function paintAll(){
+  var zlo=BASE-90, zhi=BASE+55;
+  meshes.forEach(function(o){
+    var col=o.geo.attributes.color.array, h=o.h;
+    for(var i=0;i<h.length;i++){
+      var z=h[i], c=rampAt((z-zlo)/(zhi-zlo));
+      if(contourOn){
+        var m=Math.abs(((z/5)%1+1)%1-0.5);
+        if(m>0.40) c.lerp(new THREE.Color(0x1d2a20),(m-0.40)/0.10*0.40);
+      }
+      col[i*3]=c.r; col[i*3+1]=c.g; col[i*3+2]=c.b;
+    }
+    o.geo.attributes.color.needsUpdate=true;
+  });
+}
+paintAll();
+
+/* ---------- draped tape ---------- */
+function tape(pts, closed, width, lift, color, opacity, order){
+  var list=closed?pts.concat([pts[0]]):pts, path=[], i,k,STEP=8;
+  for(i=0;i<list.length-1;i++) for(k=0;k<STEP;k++){
+    var t=k/STEP;
+    path.push([list[i][0]+(list[i+1][0]-list[i][0])*t, list[i][1]+(list[i+1][1]-list[i][1])*t]);
+  }
+  path.push(list[list.length-1]);
+  var v=[],idx=[],hw=width/2;
+  for(i=0;i<path.length;i++){
+    var p0=path[Math.max(0,i-1)], p1=path[Math.min(path.length-1,i+1)];
+    var dx=p1[0]-p0[0], dn=p1[1]-p0[1], L=Math.hypot(dx,dn)||1;
+    var ox=-dn/L*hw, on=dx/L*hw;
+    var a=W(path[i][0]+ox,path[i][1]+on,lift), b=W(path[i][0]-ox,path[i][1]-on,lift);
+    v.push(a.x,a.y,a.z,b.x,b.y,b.z);
+    if(i<path.length-1){ var o=i*2; idx.push(o,o+1,o+2,o+1,o+3,o+2); }
+  }
+  var g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(v,3)); g.setIndex(idx);
+  g.computeVertexNormals();
+  var m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:color,transparent:opacity<1,
+    opacity:opacity,side:THREE.DoubleSide,depthWrite:false}));
+  m.renderOrder=order; scene.add(m); return m;
+}
+var ACC=0xd2601f;
+tape(P.map(function(p){return [p.e,p.n];}), true, 1.6, 0.55, ACC, 1, 5);
+tape(S.road.map(function(r){return [r.e,r.n];}), false, 4.2, 0.15, 0xb9a46a, 0.95, 2);
+
+/* plot fill */
+(function(){
+  var v=[],idx=[],SUB=8,vi=0;
+  for(var s=0;s<P.length;s++){
+    var p1=P[s],p2=P[(s+1)%P.length];
+    for(var r=0;r<SUB;r++) for(var c=0;c<=r;c++){
+      var T=[[[r,c],[r+1,c],[r+1,c+1]]];
+      if(c<r) T.push([[r,c],[r+1,c+1],[r,c+1]]);
+      T.forEach(function(tri){ tri.forEach(function(uv){
+        var u=uv[0]/SUB, w2=uv[1]/SUB;
+        var e=CE+(p1.e-CE)*(u-w2)+(p2.e-CE)*w2, n=CN+(p1.n-CN)*(u-w2)+(p2.n-CN)*w2;
+        var q=W(e,n,0.12); v.push(q.x,q.y,q.z); idx.push(vi++);
+      });});
+    }
+  }
+  var g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(v,3)); g.setIndex(idx);
+  g.computeVertexNormals();
+  var m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:ACC,transparent:true,opacity:.17,
+    side:THREE.DoubleSide,depthWrite:false}));
+  m.renderOrder=3; scene.add(m);
+})();
+P.forEach(function(p){
+  var m=new THREE.Mesh(new THREE.CylinderGeometry(.3,.3,3.4,10),
+    new THREE.MeshStandardMaterial({color:ACC,roughness:.6}));
+  m.position.copy(W(p.e,p.n,1.7)); m.renderOrder=6; scene.add(m);
+});
+
+/* ---------- structures ---------- */
+var buildGrp=new THREE.Group(); scene.add(buildGrp);
+S.structures.forEach(function(st){
+  var mesh = st.r
+    ? new THREE.Mesh(new THREE.CylinderGeometry(st.r,st.r,st.h,22),
+        new THREE.MeshStandardMaterial({color:0xb7bdd4,roughness:.6}))
+    : new THREE.Mesh(new THREE.BoxGeometry(st.w,st.h,st.d),
+        new THREE.MeshStandardMaterial({color:0x9aa3c2,roughness:.72}));
+  mesh.position.copy(W(st.e,st.n,st.h/2));
+  if(!st.r) mesh.rotation.y=(st.rot||0)*Math.PI/180;
+  buildGrp.add(mesh);
+});
+
+/* ---------- labels ---------- */
+var layer=document.getElementById('labels'), LBL=[];
+function addLabel(cls,text,v,maxD){
+  var el=document.createElement('div'); el.className='lbl '+cls; el.textContent=text;
+  layer.appendChild(el); LBL.push({el:el,v:v,maxD:maxD||1e9});
+}
+P.forEach(function(p){ addLabel('lbl-v',p.id,W(p.e,p.n,4)); });
+EDG.forEach(function(ed){
+  var a=byId[ed.a],b=byId[ed.b], me=(a.e+b.e)/2, mn=(a.n+b.n)/2;
+  var dx=me-CE,dn=mn-CN,L=Math.hypot(dx,dn)||1;
+  addLabel('lbl-e',ed.len.toFixed(1)+' m',W(me+dx/L*4.5,mn+dn/L*4.5,1.6),260);
+  if(ed.label.indexOf('Road')<0) addLabel('lbl-n',ed.label,W(me+dx/L*17,mn+dn/L*17,3),200);
+});
+addLabel('lbl-s','Existing house',W(S.structures[0].e,S.structures[0].n,7.5),300);
+addLabel('lbl-n','Thankamany — Achankanam road',W(S.road[4].e,S.road[4].n-7,1.4),260);
+var tmp=new THREE.Vector3(), labelsOn=true;
+function layoutLabels(){
+  var w=canvas.clientWidth,h=canvas.clientHeight;
+  for(var i=0;i<LBL.length;i++){
+    var L=LBL[i];
+    if(!labelsOn || camera.position.distanceTo(L.v)>L.maxD){ L.el.style.opacity=0; continue; }
+    tmp.copy(L.v).project(camera);
+    if(tmp.z>1){ L.el.style.opacity=0; continue; }
+    var x=(tmp.x*.5+.5)*w, y=(-tmp.y*.5+.5)*h;
+    if(x<-90||y<-40||x>w+90||y>h+40){ L.el.style.opacity=0; continue; }
+    L.el.style.opacity=1;
+    L.el.style.transform='translate(-50%,-50%) translate('+x.toFixed(1)+'px,'+y.toFixed(1)+'px)';
+  }
+}
+
+/* ---------- camera ---------- */
+var MODE='orbit';
+var target=new THREE.Vector3(0,0,0);
+var orb={r:150,th:Math.PI*0.60,ph:0.95};
+var EYE=W(S.structures[0].e,S.structures[0].n,1.6);
+var pov={yaw:Math.PI,pitch:-0.02};
+function applyCam(){
+  if(MODE==='pov'){
+    pov.pitch=Math.max(-0.75,Math.min(0.62,pov.pitch));
+    camera.position.copy(EYE);
+    camera.lookAt(EYE.x+Math.sin(pov.yaw)*Math.cos(pov.pitch),
+                  EYE.y+Math.sin(pov.pitch),
+                  EYE.z+Math.cos(pov.yaw)*Math.cos(pov.pitch));
+    setRose(Math.atan2(Math.sin(pov.yaw), -Math.cos(pov.yaw)));
+  }else{
+    orb.ph=Math.max(0.05,Math.min(Math.PI/2-0.02,orb.ph));
+    orb.r=Math.max(26,Math.min(2600,orb.r));
+    camera.position.set(target.x+orb.r*Math.sin(orb.ph)*Math.sin(orb.th),
+                        target.y+orb.r*Math.cos(orb.ph),
+                        target.z+orb.r*Math.sin(orb.ph)*Math.cos(orb.th));
+    camera.lookAt(target); setRose(orb.th);
+  }
+  drawPano();
+}
+function setRose(a){ document.getElementById('rose').style.transform='rotate('+(a*180/Math.PI)+'deg)'; }
+function viewBearing(){
+  /* compass bearing the camera looks toward: world x=E, z=-N */
+  var d=new THREE.Vector3(); camera.getWorldDirection(d);
+  return ((Math.atan2(d.x,-d.z)*180/Math.PI)%360+360)%360;
+}
+applyCam();
+
+var drag=null, engaged=false;
+document.addEventListener('pointerdown',function(e){
+  if(e.target!==canvas) engaged=false;
+},true);
+canvas.addEventListener('pointerdown',function(e){
+  engaged=true;
+  canvas.setPointerCapture(e.pointerId); canvas.classList.add('drag');
+  drag={x:e.clientX,y:e.clientY,pan:(e.button===2||e.shiftKey)};
+});
+function endDrag(e){ canvas.classList.remove('drag'); drag=null;
+  if(e&&e.pointerId!=null){ try{canvas.releasePointerCapture(e.pointerId);}catch(_){} } }
+canvas.addEventListener('pointerup',endDrag);
+canvas.addEventListener('pointercancel',endDrag);
+canvas.addEventListener('contextmenu',function(e){e.preventDefault();});
+canvas.addEventListener('pointermove',function(e){
+  if(drag){
+    var dx=e.clientX-drag.x, dy=e.clientY-drag.y; drag.x=e.clientX; drag.y=e.clientY;
+    if(MODE==='pov'){ pov.yaw-=dx*0.0042; pov.pitch-=dy*0.0032; }
+    else if(drag.pan){
+      var k=orb.r*0.0016, s=Math.sin(orb.th), c=Math.cos(orb.th);
+      target.x-=(dx*c-dy*s)*k; target.z+=(dx*s+dy*c)*k;
+    } else { orb.th-=dx*0.006; orb.ph-=dy*0.005; }
+    applyCam();
+  } else hover(e);
+});
+canvas.addEventListener('wheel',function(e){
+  if(!engaged) return;                 /* let the page scroll until the view is clicked */
+  e.preventDefault();
+  if(MODE==='pov'){ camera.fov=Math.max(24,Math.min(76,camera.fov+e.deltaY*0.02));
+                    camera.updateProjectionMatrix(); drawPano(); }
+  else { orb.r*=Math.pow(1.0016,e.deltaY); applyCam(); }
+},{passive:false});
+var pinch=null;
+canvas.addEventListener('touchstart',function(e){ if(e.touches.length===2) pinch={d:td(e),r:orb.r}; },{passive:true});
+canvas.addEventListener('touchmove',function(e){
+  if(e.touches.length===2&&pinch&&MODE!=='pov'){ e.preventDefault(); orb.r=pinch.r*(pinch.d/Math.max(td(e),1)); applyCam(); }
+},{passive:false});
+canvas.addEventListener('touchend',function(){pinch=null;},{passive:true});
+function td(e){var a=e.touches[0],b=e.touches[1];return Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);}
+
+/* ---------- hover readout ---------- */
+var ray=new THREE.Raycaster(), ndc=new THREE.Vector2(), last=0;
+var readout=document.getElementById('readout');
+function hover(e){
+  var now=performance.now(); if(now-last<50) return; last=now;
+  var r=canvas.getBoundingClientRect();
+  ndc.x=((e.clientX-r.left)/r.width)*2-1; ndc.y=-((e.clientY-r.top)/r.height)*2+1;
+  ray.setFromCamera(ndc,camera);
+  var hit=ray.intersectObjects([near,far],false)[0];
+  if(!hit){ readout.textContent='Hover the terrain to read a point'; return; }
+  var e2=CE+hit.point.x, n2=CN-hit.point.z, z=demAt(e2,n2);
+  readout.innerHTML='<b>'+z.toFixed(1)+' m</b> &nbsp;'+(M.lat0+n2/M.mlat).toFixed(5)+'° N &nbsp;'
+    +(M.lon0+e2/M.mlon).toFixed(5)+'° E'+(inPlot(e2,n2)?' &nbsp;<span class="in">inside plot</span>':'');
+}
+
+/* ---------- 360 skyline ---------- */
+var HZ=S.horizon;   /* {brg:[{b, ang, dist, z}]} precomputed */
+var pc=document.getElementById('pano'), px2=pc.getContext('2d');
+function drawPano(){
+  if(!pc||!px2) return;
+  var w=pc.clientWidth, h=pc.clientHeight, dpr=Math.min(devicePixelRatio||1,2);
+  if(!w||!h) return;
+  if(pc.width!==w*dpr||pc.height!==h*dpr){ pc.width=w*dpr; pc.height=h*dpr; }
+  px2.setTransform(dpr,0,0,dpr,0,0); px2.clearRect(0,0,w,h);
+  var cs=getComputedStyle(document.documentElement);
+  var sky=cs.getPropertyValue('--sky').trim()||'#a9c4d8';
+  var hill=cs.getPropertyValue('--hill').trim()||'#5d6b4f';
+  var ink=cs.getPropertyValue('--ink').trim()||'#171d19';
+  var muted=cs.getPropertyValue('--muted').trim()||'#5a665d';
+  var acc=cs.getPropertyValue('--accent').trim()||'#c2571f';
+  var TOP=18, BOT=-14;                                   /* degrees shown */
+  function ya(a){ return (TOP-a)/(TOP-BOT)*(h-16)+8; }
+  px2.fillStyle=sky; px2.fillRect(0,0,w,h);
+  px2.beginPath(); px2.moveTo(0,h);
+  for(var i=0;i<=w;i++){
+    var b=i/w*360, k=b/360*HZ.length, k0=Math.floor(k)%HZ.length, k1=(k0+1)%HZ.length, f=k-Math.floor(k);
+    var a=HZ[k0].ang*(1-f)+HZ[k1].ang*f;
+    px2.lineTo(i, ya(a));
+  }
+  px2.lineTo(w,h); px2.closePath(); px2.fillStyle=hill; px2.fill();
+  /* horizon at 0 deg */
+  px2.strokeStyle=muted; px2.globalAlpha=.35; px2.setLineDash([3,4]);
+  px2.beginPath(); px2.moveTo(0,ya(0)); px2.lineTo(w,ya(0)); px2.stroke();
+  px2.setLineDash([]); px2.globalAlpha=1;
+  /* compass ticks */
+  px2.font='600 10px "IBM Plex Mono", monospace'; px2.textAlign='center';
+  var names={0:'N',45:'NE',90:'E',135:'SE',180:'S',225:'SW',270:'W',315:'NW'};
+  Object.keys(names).forEach(function(d){
+    var x=d/360*w;
+    px2.strokeStyle=muted; px2.globalAlpha=.3;
+    px2.beginPath(); px2.moveTo(x,0); px2.lineTo(x,h); px2.stroke(); px2.globalAlpha=1;
+    px2.fillStyle=ink; px2.fillText(names[d], Math.min(w-12,Math.max(12,x)), h-4);
+  });
+  /* current heading */
+  var vb=viewBearing(), xv=vb/360*w, fovw=camera.fov*(canvas.clientWidth/Math.max(1,canvas.clientHeight))/360*w*0.55;
+  px2.fillStyle=acc; px2.globalAlpha=.16; px2.fillRect(xv-fovw/2,0,fovw,h); px2.globalAlpha=1;
+  px2.strokeStyle=acc; px2.lineWidth=2;
+  px2.beginPath(); px2.moveTo(xv,0); px2.lineTo(xv,h); px2.stroke(); px2.lineWidth=1;
+  px2.fillStyle=acc; px2.font='600 10px "IBM Plex Mono", monospace'; px2.textAlign='left';
+  px2.fillText(Math.round(vb)+'°', Math.min(w-30,xv+5), 12);
+}
+function panoSeek(ev){
+  var r=pc.getBoundingClientRect(), b=(ev.clientX-r.left)/r.width*360;
+  if(MODE==='pov') pov.yaw=b*Math.PI/180;
+  else orb.th=(b+180)*Math.PI/180;
+  applyCam();
+}
+var pdrag=false;
+pc.addEventListener('pointerdown',function(e){pdrag=true; pc.setPointerCapture(e.pointerId); panoSeek(e);});
+pc.addEventListener('pointermove',function(e){ if(pdrag) panoSeek(e); });
+pc.addEventListener('pointerup',function(e){pdrag=false; try{pc.releasePointerCapture(e.pointerId);}catch(_){}});
+pc.addEventListener('pointercancel',function(){pdrag=false;});
+
+/* ---------- views + layers ---------- */
+var VIEWS={
+  iso :{r:150,th:Math.PI*0.60,ph:0.95},
+  plan:{r:140,th:Math.PI,ph:0.055},
+  road:{r:92, th:Math.PI*0.10,ph:1.30}
+};
+document.querySelectorAll('[data-view]').forEach(function(b){
+  b.addEventListener('click',function(){
+    document.querySelectorAll('[data-view]').forEach(function(o){o.setAttribute('aria-pressed',o===b);});
+    if(b.dataset.view==='pov'){
+      MODE='pov'; canvas.classList.add('pov'); camera.fov=62;
+    }else{
+      MODE='orbit'; canvas.classList.remove('pov'); camera.fov=48;
+      var v=VIEWS[b.dataset.view]; orb.r=v.r; orb.th=v.th; orb.ph=v.ph; target.set(0,0,0);
+    }
+    camera.updateProjectionMatrix(); applyCam();
+  });
+});
+document.querySelectorAll('[data-layer]').forEach(function(b){
+  b.addEventListener('click',function(){
+    var on=b.getAttribute('aria-pressed')!=='true'; b.setAttribute('aria-pressed',on);
+    if(b.dataset.layer==='labels') labelsOn=on;
+    if(b.dataset.layer==='build') buildGrp.visible=on;
+    if(b.dataset.layer==='contours'){ contourOn=on; paintAll(); }
+  });
+});
+
+/* ---------- tables ---------- */
+var er=document.getElementById('edgeRows');
+EDG.forEach(function(ed){
+  var tr=document.createElement('tr');
+  if(ed.label.indexOf('Road')>=0) tr.className='road-row';
+  tr.innerHTML='<td><span class="tag">'+ed.a+'</span>'+ed.a+'–'+ed.b+'</td><td>'+ed.label+
+    '</td><td class="num">'+ed.len.toFixed(1)+' m</td>';
+  er.appendChild(tr);
+});
+var vr=document.getElementById('vertRows'), zs=[];
+P.forEach(function(p){
+  zs.push(p.z);
+  var tr=document.createElement('tr');
+  tr.innerHTML='<td><span class="tag">'+p.id+'</span></td><td class="num">'+p.lat.toFixed(6)+
+    '</td><td class="num">'+p.lon.toFixed(6)+'</td><td class="num">'+p.z.toFixed(1)+' m</td>';
+  vr.appendChild(tr);
+});
+document.getElementById('fall').textContent=(Math.max.apply(null,zs)-Math.min.apply(null,zs)).toFixed(1)+' m';
+var hi=P[zs.indexOf(Math.max.apply(null,zs))], lo=P[zs.indexOf(Math.min.apply(null,zs))];
+document.getElementById('facts').innerHTML=
+  '<dt>Mean slope</dt><dd><b>'+S.site.slopePct+' %</b> &nbsp;<span style="color:var(--muted)">('+S.site.slopeDeg+'°)</span></dd>'+
+  '<dt>Falls toward</dt><dd><b>'+S.site.aspectName+'</b> &nbsp;<span style="color:var(--muted)">'+S.site.aspect+'°</span></dd>'+
+  '<dt>Road frontage</dt><dd><b>82.6 m</b> &nbsp;<span style="color:var(--muted)">F–G–H–C, wraps the bend</span></dd>'+
+  '<dt>Highest corner</dt><dd><b>'+hi.id+'</b> &nbsp;<span style="color:var(--muted)">'+hi.z.toFixed(0)+' m</span></dd>'+
+  '<dt>Lowest corner</dt><dd><b>'+lo.id+'</b> &nbsp;<span style="color:var(--muted)">'+lo.z.toFixed(0)+' m</span></dd>'+
+  '<dt>Standing</dt><dd>House + round structure</dd>';
+var vw=document.getElementById('viewRows');
+S.sectors.forEach(function(s){
+  var tr=document.createElement('tr');
+  tr.innerHTML='<td>'+s.name+'</td><td class="num">'+(s.ang>0?'+':'')+s.ang.toFixed(1)+'°</td>'+
+    '<td class="num">'+(s.km>=1?s.km.toFixed(1)+' km':Math.round(s.km*1000)+' m')+'</td>';
+  vw.appendChild(tr);
+});
+document.getElementById('footcoord').textContent=
+  P[0].lat.toFixed(4)+'° N · '+P[0].lon.toFixed(4)+'° E · '+Math.round(BASE)+' m ASL';
+
+/* ---------- loop ---------- */
+function resize(){
+  var w=canvas.clientWidth,h=canvas.clientHeight; if(!w||!h) return;
+  var pr=renderer.getPixelRatio();
+  if(canvas.width!==Math.floor(w*pr)||canvas.height!==Math.floor(h*pr)){
+    renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); drawPano();
+  }
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',function(){paintBg();drawPano();});
+new MutationObserver(function(){paintBg();drawPano();})
+  .observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+addEventListener('resize',drawPano);
+(function tick(){ resize(); renderer.render(scene,camera); layoutLabels(); requestAnimationFrame(tick); })();
+drawPano();
+})();
+</script>
