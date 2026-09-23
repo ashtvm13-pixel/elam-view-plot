@@ -1,3 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Interactive 3D model of a surveyed 62.65-cent hillside plot at Thankamony, Idukki, Kerala — boundary seated on the real road bend, draped on SRTM terrain, with a 360 degree skyline from the house.">
+<meta name="color-scheme" content="light dark">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Elam View Plot">
+<meta property="og:description" content="Interactive 3D model of a surveyed 62.65-cent hillside plot at Thankamony, Idukki, Kerala — boundary seated on the real road bend, draped on SRTM terrain, with a 360 degree skyline from the house.">
+<meta property="og:url" content="https://ashtvm13-pixel.github.io/elam-view-plot/">
+<style>
+  :root{ padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  body{ margin:0; -webkit-text-size-adjust:100%; }
+  img{ max-width:100%; }
+  [hidden]{ display:none !important; }
+</style>
 <title>Elam View Plot</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -51,7 +68,10 @@
   .viewer{position:relative; border:1px solid var(--line); border-radius:3px 3px 0 0;
     overflow:hidden; background:var(--surface); box-shadow:var(--shadow);}
   #stage{display:block; width:100%; height:min(62vh,580px); min-height:340px;
-    touch-action:none; cursor:grab;}
+    touch-action:pan-y; cursor:grab;}
+  .viewer.expanded{position:fixed; inset:0; z-index:60; border:0; border-radius:0; margin:0;}
+  .viewer.expanded #stage{height:100%; min-height:0; touch-action:none;}
+  body.locked{overflow:hidden}
   #stage.drag{cursor:grabbing}
   #stage.pov{cursor:crosshair}
   .lyr{position:absolute; inset:0; pointer-events:none; overflow:hidden;}
@@ -136,15 +156,38 @@
   .legend{display:flex; flex-direction:column; gap:5px; font-size:12px; color:var(--muted);}
   footer{margin-top:26px; padding-top:14px; border-top:1px solid var(--line); color:var(--muted);
     font-size:11.5px; display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap;}
-  @media (max-width:560px){
-    #stage{height:52vh; min-height:300px}
-    .seg button{padding:5px 7px; font-size:10.5px; letter-spacing:.03em}
-    .hud-bl{right:10px; bottom:64px}
-    #pano{height:108px}
+  @media (max-width:620px){
+    .wrap{padding-block:16px 36px}
+    h1{font-size:clamp(25px,7.5vw,32px)}
+    .sub{font-size:13.5px}
+    header.mast{gap:12px 18px; margin-bottom:14px}
+    .headfig{gap:18px}
+    .headfig .v{font-size:20px}
+    #stage{height:56vh; min-height:290px}
+    .viewer.expanded #stage{height:100%}
+    .seg button{padding:6px 8px; font-size:10.5px; letter-spacing:.02em}
+    .hud-tl{gap:5px; top:8px; left:8px}
+    .hud-bl{left:8px; right:8px; bottom:8px}
+    .readout{font-size:10.5px; padding:4px 7px; max-width:100%;
+      overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+    .hud-br{display:none}
+    .viewer.expanded .hud-br{display:block; bottom:auto; top:8px; right:8px}
+    #pano{height:120px}
+    .pano-head .hint{font-size:11px}
+    .grid{gap:12px; margin-top:14px}
+    .panel{padding:14px}
+    table{font-size:12.5px}
+    th{font-size:10px}
+    footer{font-size:10.5px}
+  }
+  @media (max-width:380px){
+    .seg button{padding:6px 6px; font-size:10px}
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
 </style>
 
+</head>
+<body>
 <div class="wrap">
   <header class="mast">
     <div class="id">
@@ -173,6 +216,9 @@
         <button type="button" data-layer="labels" aria-pressed="true">Labels</button>
         <button type="button" data-layer="contours" aria-pressed="true">Contours</button>
         <button type="button" data-layer="build" aria-pressed="true">Buildings</button>
+      </div>
+      <div class="seg">
+        <button type="button" id="expand" aria-pressed="false">Expand</button>
       </div>
     </div>
     <div class="hud hud-bl"><span class="readout" id="readout">Hover the terrain to read a point</span></div>
@@ -259,7 +305,7 @@
         <span><i class="sw" style="background:#8a94b8"></i>Existing house and round structure</span>
         <span><i class="sw" style="background:#7d8a75"></i>Contours every 5 m</span>
       </div>
-      <p class="note" style="margin-top:12px">Drag to orbit, right-drag to pan. Click the view once, then scroll to zoom — until you do, the wheel scrolls the page. <b>Stand at house</b> drops you to eye height inside the plot — drag to look around, and the skyline strip below tracks where you are facing.</p>
+      <p class="note" style="margin-top:12px"><b>On a phone:</b> swipe up and down to scroll the page, swipe sideways to turn the model, pinch to zoom — or tap <b>Expand</b> for the full screen with free movement. <b>On a desktop:</b> drag to orbit, right-drag to pan; click the view once, then scroll to zoom. <b>Stand at house</b> drops you to eye height inside the plot — drag to look around, and the skyline strip below tracks where you are facing.</p>
     </section>
   </div>
 
@@ -456,25 +502,27 @@ S.structures.forEach(function(st){
 
 /* ---------- labels ---------- */
 var layer=document.getElementById('labels'), LBL=[];
-function addLabel(cls,text,v,maxD){
+function addLabel(cls,text,v,maxF){
   var el=document.createElement('div'); el.className='lbl '+cls; el.textContent=text;
-  layer.appendChild(el); LBL.push({el:el,v:v,maxD:maxD||1e9});
+  layer.appendChild(el); LBL.push({el:el,v:v,maxF:maxF||1e9});
 }
 P.forEach(function(p){ addLabel('lbl-v',p.id,W(p.e,p.n,4)); });
 EDG.forEach(function(ed){
   var a=byId[ed.a],b=byId[ed.b], me=(a.e+b.e)/2, mn=(a.n+b.n)/2;
   var dx=me-CE,dn=mn-CN,L=Math.hypot(dx,dn)||1;
-  addLabel('lbl-e',ed.len.toFixed(1)+' m',W(me+dx/L*4.5,mn+dn/L*4.5,1.6),260);
-  if(ed.label.indexOf('Road')<0) addLabel('lbl-n',ed.label,W(me+dx/L*17,mn+dn/L*17,3),200);
+  addLabel('lbl-e',ed.len.toFixed(1)+' m',W(me+dx/L*4.5,mn+dn/L*4.5,1.6),3.4);
+  if(ed.label.indexOf('Road')<0) addLabel('lbl-n',ed.label,W(me+dx/L*17,mn+dn/L*17,3),2.4);
 });
-addLabel('lbl-s','Existing house',W(S.structures[0].e,S.structures[0].n,7.5),300);
-addLabel('lbl-n','Thankamany — Achankanam road',W(S.road[4].e,S.road[4].n-7,1.4),260);
+addLabel('lbl-s','Existing house',W(S.structures[0].e,S.structures[0].n,7.5),3.0);
+addLabel('lbl-n','Thankamany — Achankanam road',W(S.road[4].e,S.road[4].n-7,1.4),2.6);
 var tmp=new THREE.Vector3(), labelsOn=true;
+function narrow(){ return !expanded && canvas.clientWidth < 620; }
 function layoutLabels(){
-  var w=canvas.clientWidth,h=canvas.clientHeight;
+  var w=canvas.clientWidth,h=canvas.clientHeight, fitR=fitRadius(1.0);
   for(var i=0;i<LBL.length;i++){
     var L=LBL[i];
-    if(!labelsOn || camera.position.distanceTo(L.v)>L.maxD){ L.el.style.opacity=0; continue; }
+    if(!labelsOn || camera.position.distanceTo(L.v) > L.maxF*fitR ||
+       (narrow() && L.el.classList.contains('lbl-n'))){ L.el.style.opacity=0; continue; }
     tmp.copy(L.v).project(camera);
     if(tmp.z>1){ L.el.style.opacity=0; continue; }
     var x=(tmp.x*.5+.5)*w, y=(-tmp.y*.5+.5)*h;
@@ -487,6 +535,13 @@ function layoutLabels(){
 /* ---------- camera ---------- */
 var MODE='orbit';
 var target=new THREE.Vector3(0,0,0);
+var PLOTR=0;
+P.forEach(function(p){ PLOTR=Math.max(PLOTR, Math.hypot(p.e-CE,p.n-CN)); });
+function fitRadius(margin){
+  var vf=camera.fov*Math.PI/180;
+  var hf=2*Math.atan(Math.tan(vf/2)*Math.max(camera.aspect,0.2));
+  return (PLOTR*(margin||1.45))/Math.tan(Math.max(0.08,Math.min(vf,hf)/2));
+}
 var orb={r:150,th:Math.PI*0.60,ph:0.95};
 var EYE=W(S.structures[0].e,S.structures[0].n,1.6);
 var pov={yaw:Math.PI,pitch:-0.02};
@@ -516,7 +571,7 @@ function viewBearing(){
 }
 applyCam();
 
-var drag=null, engaged=false;
+var drag=null, engaged=false, expanded=false;
 document.addEventListener('pointerdown',function(e){
   if(e.target!==canvas) engaged=false;
 },true);
@@ -533,6 +588,7 @@ canvas.addEventListener('contextmenu',function(e){e.preventDefault();});
 canvas.addEventListener('pointermove',function(e){
   if(drag){
     var dx=e.clientX-drag.x, dy=e.clientY-drag.y; drag.x=e.clientX; drag.y=e.clientY;
+    if(e.pointerType==='touch' && !expanded) dy=0;   /* vertical swipe scrolls the page */
     if(MODE==='pov'){ pov.yaw-=dx*0.0042; pov.pitch-=dy*0.0032; }
     else if(drag.pan){
       var k=orb.r*0.0016, s=Math.sin(orb.th), c=Math.cos(orb.th);
@@ -631,10 +687,11 @@ pc.addEventListener('pointercancel',function(){pdrag=false;});
 
 /* ---------- views + layers ---------- */
 var VIEWS={
-  iso :{r:150,th:Math.PI*0.60,ph:0.95},
-  plan:{r:140,th:Math.PI,ph:0.055},
-  road:{r:92, th:Math.PI*0.10,ph:1.30}
+  iso :{m:1.55,th:Math.PI*0.60,ph:0.95},
+  plan:{m:1.30,th:Math.PI,      ph:0.055},
+  road:{m:0.95,th:Math.PI*0.10, ph:1.30}
 };
+var curView='iso';
 document.querySelectorAll('[data-view]').forEach(function(b){
   b.addEventListener('click',function(){
     document.querySelectorAll('[data-view]').forEach(function(o){o.setAttribute('aria-pressed',o===b);});
@@ -642,11 +699,24 @@ document.querySelectorAll('[data-view]').forEach(function(b){
       MODE='pov'; canvas.classList.add('pov'); camera.fov=62;
     }else{
       MODE='orbit'; canvas.classList.remove('pov'); camera.fov=48;
-      var v=VIEWS[b.dataset.view]; orb.r=v.r; orb.th=v.th; orb.ph=v.ph; target.set(0,0,0);
+      curView=b.dataset.view;
+      var v=VIEWS[curView]; orb.th=v.th; orb.ph=v.ph; orb.r=fitRadius(v.m); target.set(0,0,0);
     }
     camera.updateProjectionMatrix(); applyCam();
   });
 });
+var viewerEl=document.querySelector('.viewer'), expBtn=document.getElementById('expand');
+expBtn.addEventListener('click',function(){
+  expanded=!expanded;
+  viewerEl.classList.toggle('expanded',expanded);
+  document.body.classList.toggle('locked',expanded);
+  expBtn.textContent = expanded ? 'Close' : 'Expand';
+  expBtn.setAttribute('aria-pressed', expanded);
+  if(expanded) engaged=true;
+  requestAnimationFrame(function(){ resize(); applyCam(); });
+});
+addEventListener('keydown',function(e){ if(e.key==='Escape'&&expanded) expBtn.click(); });
+
 document.querySelectorAll('[data-layer]').forEach(function(b){
   b.addEventListener('click',function(){
     var on=b.getAttribute('aria-pressed')!=='true'; b.setAttribute('aria-pressed',on);
@@ -697,7 +767,9 @@ function resize(){
   var w=canvas.clientWidth,h=canvas.clientHeight; if(!w||!h) return;
   var pr=renderer.getPixelRatio();
   if(canvas.width!==Math.floor(w*pr)||canvas.height!==Math.floor(h*pr)){
-    renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); drawPano();
+    renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();
+    if(MODE!=='pov'){ orb.r=fitRadius(VIEWS[curView].m); applyCam(); }
+    drawPano();
   }
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change',function(){paintBg();drawPano();});
@@ -705,6 +777,10 @@ new MutationObserver(function(){paintBg();drawPano();})
   .observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 addEventListener('resize',drawPano);
 (function tick(){ resize(); renderer.render(scene,camera); layoutLabels(); requestAnimationFrame(tick); })();
+requestAnimationFrame(function(){ if(MODE!=='pov'){ orb.r=fitRadius(VIEWS[curView].m); applyCam(); } });
 drawPano();
 })();
 </script>
+
+</body>
+</html>
